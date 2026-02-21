@@ -1,0 +1,24 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// storage.rules  —  Firebase Storage Security Rules
+//
+// LESSON: Storage rules work similarly to Firestore rules.
+// Driver illustrations are public assets — anyone can read them.
+// Only the Admin SDK (server-side scripts) can write.
+// ─────────────────────────────────────────────────────────────────────────────
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Driver illustrations — public read, admin-only write
+    match /driver-illustrations/{filename} {
+      allow read:  if true;
+      allow write: if false; // admin SDK only
+    }
+
+    // Deny everything else by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
