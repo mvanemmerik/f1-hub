@@ -18,6 +18,7 @@ export default function Navbar() {
     { to: '/teams',       label: 'Teams'       },
     { to: '/calendar',    label: 'Calendar'    },
     { to: '/news',        label: 'News'        },
+    { to: '/standings',   label: 'Standings'   },
     { to: '/predictions', label: 'Predictions' },
   ];
 

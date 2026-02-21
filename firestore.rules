@@ -78,6 +78,24 @@ service cloud.firestore {
       allow read,  write: if isSignedIn() && request.auth.uid == userId;
     }
 
+    // ── Race results ────────────────────────────────────────────────────────
+    // Written exclusively by the syncF1Data Cloud Function (Admin SDK).
+    // Any signed-in user can read — no client writes allowed.
+
+    match /results/{resultId} {
+      allow read:  if isSignedIn();
+      allow write: if false; // Admin SDK only
+    }
+
+    // ── Championship standings ───────────────────────────────────────────────
+    // Two documents: standings/drivers and standings/constructors.
+    // Written by syncF1Data — readable by all signed-in users.
+
+    match /standings/{docId} {
+      allow read:  if isSignedIn();
+      allow write: if false; // Admin SDK only
+    }
+
     // ── Comments ────────────────────────────────────────────────────────────
     // Any signed-in user can read all comments.
     // A signed-in user can only CREATE a comment attributed to themselves.

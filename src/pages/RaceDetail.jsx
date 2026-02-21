@@ -1,20 +1,36 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// RaceDetail.jsx  —  Individual race page with comments
+// RaceDetail.jsx  —  Individual race page with results + comments
+//
+// LESSON: We fetch the race document and its result document in parallel.
+// The result document may not exist yet (race hasn't happened, or the Cloud
+// Function hasn't run). We always handle the null case gracefully.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getRace } from '../firebase/firestore';
+import { getRace, getRaceResult } from '../firebase/firestore';
 import CommentSection from '../components/CommentSection';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function RaceDetail() {
-  const { raceId }            = useParams();
-  const [race,    setRace]    = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { raceId }              = useParams();
+  const [race,    setRace]      = useState(null);
+  const [result,  setResult]    = useState(null);  // may be null if race not yet run
+  const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
-    getRace(raceId).then(data => { setRace(data); setLoading(false); });
+    async function load() {
+      const raceData = await getRace(raceId);
+      setRace(raceData);
+
+      if (raceData) {
+        // Try to load the result — docId format is "2026_01", "2026_02", etc.
+        const res = await getRaceResult(2026, raceData.round);
+        setResult(res);
+      }
+      setLoading(false);
+    }
+    load();
   }, [raceId]);
 
   if (loading) return <LoadingSpinner message="Loading race details..." />;
@@ -67,6 +83,36 @@ export default function RaceDetail() {
           ))}
         </div>
       </section>
+
+      {/* Race results — shown only when the Cloud Function has written data */}
+      {result && (
+        <section className="section">
+          <h2 className="section-title">Race Result</h2>
+          <div className="result-table">
+            <div className="result-header result-row">
+              <span>Pos</span>
+              <span>Driver</span>
+              <span>Constructor</span>
+              <span>Pts</span>
+              <span>Time / Status</span>
+            </div>
+            {result.results.map(r => (
+              <div key={r.position} className="result-row">
+                <span className={`standings-pos ${r.position <= 3 ? `pos-${r.position}` : ''}`}>
+                  {r.position}
+                </span>
+                <span className="result-driver">
+                  <span className="standings-code">{r.driverCode}</span>
+                  <span className="standings-name">{r.driverName}</span>
+                </span>
+                <span className="result-constructor">{r.constructor}</span>
+                <span className="result-pts">{r.points}</span>
+                <span className="result-time">{r.time ?? r.status}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Comments */}
       <section className="section">

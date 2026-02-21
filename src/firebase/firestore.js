@@ -21,6 +21,7 @@ import {
   getDocs,
   getDoc,
   addDoc,
+  setDoc,
   query,
   orderBy,
   where,
@@ -105,6 +106,56 @@ export async function addPrediction(userId, displayName, raceId, raceName, predi
     predictedWinner,
     createdAt: serverTimestamp(),
   });
+}
+
+// ── Standings ─────────────────────────────────────────────────────────────────
+// LESSON: The standings documents are written by the Cloud Function and are
+// simple single-document reads — no query needed, just getDoc by known ID.
+
+export async function getStandings(type) {
+  // type is 'drivers' or 'constructors'
+  const snap = await getDoc(doc(db, 'standings', type));
+  if (!snap.exists()) return null;
+  return snap.data();
+}
+
+// ── Race results ──────────────────────────────────────────────────────────────
+// Results are stored as `{year}_{roundPadded}` e.g. "2026_01".
+// We also expose a query to get all results for the season (for the calendar).
+
+export async function getRaceResult(season, round) {
+  const id   = `${season}_${String(round).padStart(2, '0')}`;
+  const snap = await getDoc(doc(db, 'results', id));
+  if (!snap.exists()) return null;
+  return snap.data();
+}
+
+export async function getAllResults(season) {
+  const snap = await getDocs(
+    query(collection(db, 'results'), where('season', '==', season), orderBy('round'))
+  );
+  return snap.docs.map(d => d.data());
+}
+
+// ── User profile ──────────────────────────────────────────────────────────────
+
+export async function getUserProfile(uid) {
+  const snap = await getDoc(doc(db, 'users', uid));
+  if (!snap.exists()) return null;
+  return snap.data();
+}
+
+export async function setFavouriteDriver(uid, driverId) {
+  // merge: true so we only touch favouriteDriverId, leaving other profile fields intact
+  // LESSON: setDoc with merge is an "upsert" — create if missing, update if exists
+  await setDoc(doc(db, 'users', uid), { favouriteDriverId: driverId }, { merge: true });
+}
+
+// ── All predictions (for leaderboard) ────────────────────────────────────────
+
+export async function getAllPredictions() {
+  const snap = await getDocs(collection(db, 'predictions'));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 export async function getUserPredictionForRace(userId, raceId) {

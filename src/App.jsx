@@ -28,6 +28,7 @@ import RaceDetail     from './pages/RaceDetail';
 import Predictions    from './pages/Predictions';
 import Profile        from './pages/Profile';
 import News           from './pages/News';
+import Standings      from './pages/Standings';
 import NotFound       from './pages/NotFound';
 
 export default function App() {
@@ -47,7 +48,7 @@ export default function App() {
           <p className="login-subtitle">Fan Hub</p>
           <p className="login-desc">
             Sign in to access driver stats, race predictions,<br />
-            live commentary, and the full 2026 season.
+            fan discussion, and the full 2026 season.
           </p>
           <button className="btn-primary btn-google" onClick={signInWithGoogle}>
             <GoogleIcon />
@@ -76,6 +77,7 @@ export default function App() {
           <Route path="/calendar"     element={<Calendar />}   />
           <Route path="/race/:raceId" element={<RaceDetail />} />
           <Route path="/news"         element={<News />}       />
+          <Route path="/standings"    element={<Standings />}  />
           <Route path="/predictions"  element={
             <ProtectedRoute><Predictions /></ProtectedRoute>
           } />

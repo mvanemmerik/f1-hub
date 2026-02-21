@@ -644,6 +644,91 @@ img { display: block; }
 .footer-link    { color: var(--text-muted); text-decoration: underline; text-underline-offset: 3px; transition: color .15s; }
 .footer-link:hover { color: var(--red); }
 
+/* ── Standings ────────────────────────────────────────────────────────────── */
+.standings-meta    { color: var(--text-dim); font-size: .85rem; margin: .5rem 0 1rem; }
+.standings-empty   { text-align: center; padding: 3rem 1rem; }
+.standings-empty-sub { color: var(--text-dim); font-size: .9rem; margin-top: .5rem; }
+
+.standings-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.standings-header {
+  background: var(--surface-2, #1a1a2e);
+  color: var(--text-dim);
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: .6rem 1rem;
+}
+.standings-row {
+  display: grid;
+  align-items: center;
+  padding: .75rem 1rem;
+  border-top: 1px solid var(--border);
+  transition: background .15s;
+}
+.standings-row:hover { background: rgba(255,255,255,.03); }
+
+/* Column layouts */
+.standings-row-drivers      { grid-template-columns: 40px 1fr 1fr 50px 80px; gap: .5rem; }
+.standings-row-constructors { grid-template-columns: 40px 1fr 50px 80px; gap: .5rem; }
+
+.standings-pos {
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--text-dim);
+  text-align: center;
+}
+.pos-1 { color: #ffd700; } /* gold  */
+.pos-2 { color: #c0c0c0; } /* silver */
+.pos-3 { color: #cd7f32; } /* bronze */
+
+.standings-driver        { display: flex; align-items: center; gap: .5rem; }
+.standings-code          { font-weight: 700; font-size: .85rem; color: var(--red); min-width: 32px; }
+.standings-name          { color: var(--text); }
+.standings-constructor, .standings-constructor-name { color: var(--text-muted); font-size: .9rem; }
+.standings-wins          { color: var(--text-muted); font-size: .9rem; text-align: center; }
+.standings-points        { font-weight: 700; text-align: right; }
+.pts-label               { font-weight: 400; font-size: .75rem; color: var(--text-dim); }
+
+/* ── Race results table ───────────────────────────────────────────────────── */
+.result-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.result-row {
+  display: grid;
+  grid-template-columns: 40px 1fr 1fr 40px 1fr;
+  align-items: center;
+  gap: .5rem;
+  padding: .65rem 1rem;
+  border-top: 1px solid var(--border);
+  transition: background .15s;
+}
+.result-row:hover { background: rgba(255,255,255,.03); }
+.result-header {
+  background: var(--surface-2, #1a1a2e);
+  color: var(--text-dim);
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border-top: none;
+}
+.result-driver      { display: flex; align-items: center; gap: .5rem; }
+.result-constructor { color: var(--text-muted); font-size: .85rem; }
+.result-pts         { color: var(--text-dim); font-size: .9rem; text-align: center; }
+.result-time        { color: var(--text-muted); font-size: .85rem; font-family: monospace; }
+
 /* ── Login wall ───────────────────────────────────────────────────────────── */
 /*
  * LESSON: The login wall is a full-viewport overlay that replaces the entire
