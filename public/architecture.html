@@ -42,7 +42,7 @@
       overflow-x: auto;
     }
 
-    /* ── Legend ───────────────────────────────────────────────────── */
+    /* ── Legend ───────────────────────────────────────────── */
     .legend {
       display: flex;
       flex-wrap: wrap;
@@ -64,7 +64,7 @@
       flex-shrink: 0;
     }
 
-    /* ── Data flow table ──────────────────────────────────────────── */
+    /* ── Data flow table ──────────────────────────────────── */
     .flows {
       max-width: 1300px;
       margin: 0 auto;
@@ -116,7 +116,7 @@
   <p>End-to-end data flow: from DNS to Firestore to the user's browser</p>
 </header>
 
-<!-- ── Mermaid Diagram ────────────────────────────────────────────── -->
+<!-- ── Mermaid Diagram ──────────────────────────────────────────── -->
 <div class="diagram-wrap">
   <div class="mermaid">
 %%{init: {
@@ -139,40 +139,43 @@
 
 flowchart TB
 
-  %% ── User ──────────────────────────────────────────────────────────
+  %% ── User ────────────────────────────────────────────────────────────
   subgraph USER["  👤  End User  "]
     Browser["🌐  Browser\n──────────\nf1.vanemmerik.ai"]
   end
 
-  %% ── DNS ───────────────────────────────────────────────────────────
+  %% ── DNS ─────────────────────────────────────────────────────────────
   subgraph CDN_LAYER["  🌐  Cloudflare  "]
     CF["DNS\n──────────\nf1.vanemmerik.ai\n→ Firebase Hosting\n(DNS-only, grey cloud)"]
   end
 
-  %% ── Firebase ──────────────────────────────────────────────────────
+  %% ── Firebase / GCP ───────────────────────────────────────────────────
   subgraph FIREBASE["  🔥  Firebase — GCP  "]
     Hosting["📦  Firebase Hosting\n──────────\nCDN edge nodes\nServes React SPA\n(dist/ folder)"]
     Auth["🔐  Firebase Auth\n──────────\nGoogle Sign-In\nSession management\nAuthorized domains"]
-    Firestore["🗄️  Firestore\n──────────\n/drivers   (public)\n/teams     (public)\n/races     (public)\n/users     (owner)\n/comments  (auth)\n/predictions (auth)"]
+    Firestore["🗄️  Firestore\n──────────\n/drivers      (public)\n/teams        (public)\n/races        (public)\n/results      (auth read)\n/standings    (auth read)\n/users        (owner)\n/comments     (auth)\n/predictions  (auth)"]
     Storage["🖼️  Firebase Storage\n──────────\n/driver-illustrations\n22 × AI-generated\nPNG portraits"]
+    Scheduler["⏰  Cloud Scheduler\n──────────\nCron: 0 6 * * *\nTriggers syncF1Data\ndaily at 06:00 UTC"]
+    Functions["⚡  Cloud Functions\n──────────\nsyncF1Data (Gen 2)\nFetches Jolpica API\nWrites results +\nstandings to Firestore"]
   end
 
-  %% ── External ──────────────────────────────────────────────────────
+  %% ── External ─────────────────────────────────────────────────────────
   subgraph EXTERNAL["  🌍  External Services  "]
     GoogleOAuth["🔵  Google OAuth 2.0\n──────────\nSign-in popup\nID token → Firebase"]
+    JolpicaAPI["🏎️  Jolpica F1 API\n──────────\napi.jolpi.ca\nRace results\nDriver standings\nConstructor standings\n(free, no key)"]
     rss2json["⚙️  rss2json.com\n──────────\nCORS proxy\nRSS → JSON"]
     Motorsport["📰  Motorsport.com\n──────────\nF1 RSS feed\n(live news)"]
     Gemini["✨  Gemini API\n──────────\ngemini-2.0-flash\n-exp-image-generation\nComic/manga portraits"]
   end
 
-  %% ── Developer ─────────────────────────────────────────────────────
+  %% ── Developer ────────────────────────────────────────────────────────
   subgraph DEV["  💻  Developer Toolchain  "]
     GitHub["🐙  GitHub\n──────────\nmvanemmerik/f1-hub\nSource of truth"]
     CLI["⚡  Firebase CLI\n──────────\nnpm run build\nfirebase deploy"]
     Scripts["📜  Admin Scripts\n──────────\nseed.js\ngenerate-illustrations.js\nupdate-photos.js\n(Admin SDK — bypasses rules)"]
   end
 
-  %% ── Edges: User flow ──────────────────────────────────────────────
+  %% ── Edges: User flow ─────────────────────────────────────────────────
   Browser      -->|"DNS lookup"| CF
   CF           -->|"CNAME → Firebase"| Hosting
   Hosting      -->|"Serves index.html + JS"| Browser
@@ -182,24 +185,31 @@ flowchart TB
   GoogleOAuth  -->|"ID token"| Auth
   Auth         -->|"Auth state"| Browser
 
-  Browser      -->|"Read drivers/teams/races\n(public, no auth)"| Firestore
-  Browser      -->|"Write comments/predictions\n(requires auth + rules)"| Firestore
+  Browser      -->|"Read drivers/teams/races\nresults/standings (auth)"| Firestore
+  Browser      -->|"Write comments/predictions\n(auth + rules)"| Firestore
   Browser      -->|"Load illustrations\n(public read)"| Storage
 
   Browser      -->|"Fetch news (CORS)"| rss2json
   rss2json     -->|"Proxy RSS fetch"| Motorsport
 
-  %% ── Edges: Dev/deploy flow ────────────────────────────────────────
+  %% ── Edges: Automated sync ────────────────────────────────────────────
+  Scheduler    -->|"Trigger daily\n06:00 UTC"| Functions
+  Functions    -->|"GET /last/results\nGET /driverStandings\nGET /constructorStandings"| JolpicaAPI
+  JolpicaAPI   -->|"Race results + standings\nJSON response"| Functions
+  Functions    -->|"Batch write\nresults + standings\n(Admin SDK)"| Firestore
+
+  %% ── Edges: Dev/deploy flow ───────────────────────────────────────────
   GitHub       -->|"git push"| CLI
   CLI          -->|"firebase deploy\n--only hosting"| Hosting
   CLI          -->|"firebase deploy\n--only firestore"| Firestore
+  CLI          -->|"firebase deploy\n--only functions"| Functions
 
   Scripts      -->|"Gemini image gen\n(22 drivers)"| Gemini
   Gemini       -->|"base64 PNG"| Scripts
   Scripts      -->|"Upload illustrations\n(Admin SDK)"| Storage
   Scripts      -->|"Seed & update\nFirestore docs"| Firestore
 
-  %% ── Styles ────────────────────────────────────────────────────────
+  %% ── Styles ───────────────────────────────────────────────────────────
   style Browser     fill:#1a1a2e,stroke:#4444aa,color:#f0f0f0
   style CF          fill:#1a1a1a,stroke:#f6821f,color:#f6821f
 
@@ -207,8 +217,11 @@ flowchart TB
   style Auth        fill:#1a2e1a,stroke:#34a853,color:#f0f0f0
   style Firestore   fill:#1a2e1a,stroke:#34a853,color:#f0f0f0
   style Storage     fill:#1a2e1a,stroke:#34a853,color:#f0f0f0
+  style Scheduler   fill:#1a2e1a,stroke:#34a853,color:#f0f0f0
+  style Functions   fill:#2a1a1a,stroke:#e10600,color:#f0f0f0
 
   style GoogleOAuth fill:#1a1a2e,stroke:#4285f4,color:#f0f0f0
+  style JolpicaAPI  fill:#1e1e1e,stroke:#888888,color:#f0f0f0
   style rss2json    fill:#1e1e1e,stroke:#555555,color:#f0f0f0
   style Motorsport  fill:#1e1e1e,stroke:#555555,color:#f0f0f0
   style Gemini      fill:#1a2030,stroke:#8ab4f8,color:#f0f0f0
@@ -219,18 +232,19 @@ flowchart TB
   </div>
 </div>
 
-<!-- ── Legend ─────────────────────────────────────────────────────── -->
+<!-- ── Legend ───────────────────────────────────────────────────── -->
 <div class="legend">
   <div class="legend-item"><div class="legend-dot" style="background:#4444aa"></div> Browser / Client</div>
   <div class="legend-item"><div class="legend-dot" style="background:#f6821f"></div> Cloudflare DNS</div>
   <div class="legend-item"><div class="legend-dot" style="background:#34a853"></div> Firebase / GCP Services</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#e10600"></div> Cloud Functions</div>
   <div class="legend-item"><div class="legend-dot" style="background:#4285f4"></div> Google OAuth</div>
   <div class="legend-item"><div class="legend-dot" style="background:#8ab4f8"></div> Gemini AI</div>
   <div class="legend-item"><div class="legend-dot" style="background:#6e40c9"></div> Developer Toolchain</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#555"></div> External APIs</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#888"></div> External APIs</div>
 </div>
 
-<!-- ── Data flow breakdown ────────────────────────────────────────── -->
+<!-- ── Data flow breakdown ──────────────────────────────────────── -->
 <div class="flows">
 
   <div class="flow-card">
@@ -239,21 +253,23 @@ flowchart TB
     <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">Cloudflare CNAME points to <strong>Firebase Hosting CDN</strong></span></div>
     <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">Firebase serves <strong>index.html + React bundle</strong> from CDN edge node</span></div>
     <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">React app boots, <strong>onAuthStateChanged</strong> checks for existing session</span></div>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">If no session, <strong>login wall</strong> renders — nothing else loads until sign-in</span></div>
   </div>
 
   <div class="flow-card">
     <h3>🔐 Authentication</h3>
-    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">User clicks <strong>Sign in with Google</strong></span></div>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">User clicks <strong>Sign in with Google</strong> on the login wall</span></div>
     <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">Firebase Auth opens <strong>Google OAuth popup</strong></span></div>
     <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">Google returns <strong>ID token</strong> to Firebase Auth</span></div>
     <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">Firebase validates token, creates <strong>session</strong> + user doc in Firestore</span></div>
-    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>AuthContext</strong> propagates user state to all React components</span></div>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>AuthContext</strong> propagates user state — full app renders</span></div>
   </div>
 
   <div class="flow-card">
-    <h3>🗄️ Database Reads (Public)</h3>
-    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>getDocs()</strong> fetches drivers, teams, races — no auth required</span></div>
-    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">Firestore Security Rules: <strong>allow read: if true</strong></span></div>
+    <h3>🗄️ Database Reads</h3>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>getDocs()</strong> fetches drivers, teams, races — Security Rules: <code>allow read: if true</code></span></div>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>getDoc()</strong> fetches standings/drivers and standings/constructors — requires auth</span></div>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>getRaceResult()</strong> fetches results/{year_round} — requires auth</span></div>
     <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">Comments use <strong>onSnapshot()</strong> — real-time listener, auto-updates UI</span></div>
   </div>
 
@@ -263,6 +279,15 @@ flowchart TB
     <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">Client calls <strong>addDoc()</strong> with userId = request.auth.uid</span></div>
     <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">Firestore Security Rules validate: <strong>auth, ownership, field types, length</strong></span></div>
     <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">Write accepted or rejected <strong>server-side</strong> — client code cannot override</span></div>
+  </div>
+
+  <div class="flow-card">
+    <h3>⚡ Automated Data Sync (new)</h3>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>Cloud Scheduler</strong> fires cron trigger daily at 06:00 UTC</span></div>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>syncF1Data</strong> Cloud Function (Gen 2 / Node.js 20) wakes up</span></div>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">Calls <strong>Jolpica F1 API</strong> in parallel: latest race results + driver standings + constructor standings</span></div>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">Writes to Firestore <strong>atomically via batch commit</strong> (Admin SDK bypasses rules)</span></div>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">Standings page + Race Detail page read fresh data on next visit</span></div>
   </div>
 
   <div class="flow-card">
@@ -285,21 +310,23 @@ flowchart TB
     <h3>🚀 Deployment</h3>
     <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>git push</strong> to GitHub (source of truth)</span></div>
     <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>npm run build</strong> — Vite bundles React into dist/</span></div>
-    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>firebase deploy</strong> — pushes dist/ to Hosting CDN, rules to Firestore + Storage</span></div>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>firebase deploy --only hosting</strong> — pushes dist/ to Hosting CDN</span></div>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>firebase deploy --only functions</strong> — builds + deploys Cloud Function via Cloud Build</span></div>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>firebase deploy --only firestore</strong> — updates Security Rules + indexes</span></div>
   </div>
 
   <div class="flow-card">
     <h3>🔒 Security Layers</h3>
-    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>Client-side:</strong> ProtectedRoute redirects unauthenticated users</span></div>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>Login wall:</strong> entire app gated — no routes render without a signed-in user</span></div>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>Client-side:</strong> ProtectedRoute guards Predictions + Profile pages</span></div>
     <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>Server-side:</strong> Firestore Security Rules — cannot be bypassed by any client</span></div>
-    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>Storage Rules:</strong> public read, admin-write-only for illustrations</span></div>
-    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>Admin SDK:</strong> bypasses all rules — only used in trusted offline scripts</span></div>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>results + standings:</strong> written only by Cloud Function (Admin SDK) — no client write</span></div>
     <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc"><strong>Secrets:</strong> .env and serviceAccountKey.json — gitignored, never in repo</span></div>
   </div>
 
 </div>
 
-<footer>F1 2026 Fan Hub · Built with OpenCode · Firebase + React + Gemini AI</footer>
+<footer>F1 2026 Fan Hub · Built with OpenCode · Firebase + React + Gemini AI + Cloud Functions</footer>
 
 <script>
   mermaid.initialize({
