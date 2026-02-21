@@ -13,8 +13,8 @@ import { useState, useEffect } from 'react';
 import NewsCard from '../components/NewsCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 
-const RSS_FEED    = 'https://www.motorsport.com/rss/f1/news/';
-const API_URL     = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(RSS_FEED)}&count=24`;
+const RSS_FEED = 'https://www.motorsport.com/rss/f1/news/';
+const API_URL  = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(RSS_FEED)}`;
 
 export default function News() {
   const [articles, setArticles] = useState([]);

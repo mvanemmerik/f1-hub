@@ -10,7 +10,7 @@ import NewsCard from '../components/NewsCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const RSS_FEED = 'https://www.motorsport.com/rss/f1/news/';
-const NEWS_API = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(RSS_FEED)}&count=3`;
+const NEWS_API = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(RSS_FEED)}`;
 
 function Countdown({ targetDate }) {
   const [timeLeft, setTimeLeft] = useState(calcTime(targetDate));
@@ -54,7 +54,7 @@ export default function Home() {
     getRaces().then(data => { setRaces(data); setLoading(false); });
     fetch(NEWS_API)
       .then(r => r.json())
-      .then(d => { if (d.status === 'ok') setNews(d.items); })
+      .then(d => { if (d.status === 'ok') setNews(d.items.slice(0, 3)); })
       .catch(() => {});
   }, []);
 
