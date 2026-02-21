@@ -12,8 +12,8 @@
     "rewrites": [
       {
         "source": "/api/askF1Expert",
-        "run": {
-          "serviceId": "askf1expert",
+        "function": {
+          "functionId": "askF1Expert",
           "region": "us-central1"
         }
       },

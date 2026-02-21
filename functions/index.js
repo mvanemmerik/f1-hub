@@ -28,16 +28,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const { onSchedule }               = require('firebase-functions/v2/scheduler');
-const { onRequest }                = require('firebase-functions/v2/https');
+const { onCall, HttpsError }       = require('firebase-functions/v1/https');
+const functionsV1                  = require('firebase-functions/v1');
 const { logger }                   = require('firebase-functions');
 const { initializeApp }            = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
-const { getAuth }                  = require('firebase-admin/auth');
 const { GoogleGenerativeAI }       = require('@google/generative-ai');
 
 initializeApp();
-const db    = getFirestore();
-const auth  = getAuth();
+const db = getFirestore();
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -194,93 +193,46 @@ exports.syncF1Data = onSchedule(
 
 // ── askF1Expert ───────────────────────────────────────────────────────────────
 //
-// LESSON: This is an HTTP function (onRequest) rather than a Callable (onCall).
-// We route it through Firebase Hosting rewrites (/api/askF1Expert → Cloud Run)
-// which lets Firebase Hosting act as an authenticated internal proxy — this is
-// the recommended pattern when a GCP org policy blocks allUsers IAM bindings.
+// LESSON: This is a Gen 1 Cloud Function (firebase-functions/v1). Unlike Gen 2
+// functions which run on Cloud Run, Gen 1 functions use Google's original Cloud
+// Functions infrastructure — a separate resource type that is NOT subject to the
+// Cloud Run org policy blocking allUsers IAM bindings.
 //
-// Because we use onRequest, we handle three things that onCall does automatically:
-//   1. CORS — we set Access-Control-Allow-* headers manually
-//   2. Auth — we extract the Firebase ID token from the Authorization header
-//              and verify it using the Admin SDK's auth().verifyIdToken()
-//   3. Response format — we call res.json() directly
+// Gen 1 onCall automatically handles:
+//   • Auth  — context.auth is populated with the verified Firebase user.
+//             No manual token extraction or verifyIdToken() needed.
+//   • CORS  — handled automatically by the Firebase Functions framework.
+//
+// syncF1Data stays as Gen 2 (onSchedule is Gen 2 only). Mixing Gen 1 and Gen 2
+// in the same functions/index.js is fully supported — Firebase CLI detects each
+// function's generation from its import source and deploys accordingly.
 //
 // The function itself:
-//   1. Validates the caller is authenticated via Firebase ID token
+//   1. Confirms the caller is signed in (context.auth)
 //   2. Builds a rich F1-expert system prompt with the user's known preferences
 //   3. Sends the full conversation history to Gemini (short-term memory)
 //   4. Enables Gemini's native googleSearch tool for live data lookups
 //   5. Parses any new user facts the model extracted for long-term memory
-//
-// Google Search grounding is a first-class Gemini feature — no extra API keys.
-// The model decides autonomously when to search Google vs answer from training.
 
-// Allowed origins for CORS — only our own domains can call this endpoint
-const ALLOWED_ORIGINS = [
-  'https://f1.vanemmerik.ai',
-  'https://f1-fan-hub-b9098.web.app',
-  'https://f1-fan-hub-b9098.firebaseapp.com',
-  'http://localhost:5173',  // Vite dev server for local testing
-];
+exports.askF1Expert = functionsV1
+  .region('us-central1')
+  .runWith({ memory: '512MB', timeoutSeconds: 60 })
+  .https.onCall(async (data, context) => {
 
-exports.askF1Expert = onRequest(
-  {
-    region:         'us-central1',
-    memory:         '512MiB',
-    timeoutSeconds: 60,   // longer than default — search + inference can take ~10–20 s
-  },
-  async (req, res) => {
-
-    // ── CORS ──────────────────────────────────────────────────────────────────
-    // LESSON: CORS (Cross-Origin Resource Sharing) is a browser security feature.
-    // When a web page calls an API on a different domain, the browser first sends
-    // an OPTIONS "preflight" request to check permission. We must respond with the
-    // correct headers or the browser will block the real request.
-    const origin = req.headers.origin;
-    if (ALLOWED_ORIGINS.includes(origin)) {
-      res.set('Access-Control-Allow-Origin', origin);
+    // ── Auth ──────────────────────────────────────────────────────────────────
+    // LESSON: With Gen 1 onCall, Firebase verifies the user's ID token before
+    // this handler runs and populates context.auth. If the user is not signed in,
+    // context.auth is null — we just check and throw, no manual token parsing.
+    if (!context.auth) {
+      throw new HttpsError('unauthenticated', 'Must be signed in to use the F1 Expert.');
     }
-    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.set('Access-Control-Max-Age',       '3600');
+    const uid = context.auth.uid;
 
-    if (req.method === 'OPTIONS') {
-      res.status(204).send('');
-      return;
-    }
-    if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Method not allowed' });
-      return;
-    }
-
-    // ── Auth — verify Firebase ID token ──────────────────────────────────────
-    // LESSON: The client sends the user's Firebase ID token in the Authorization
-    // header as a Bearer token. The Admin SDK's verifyIdToken() validates that
-    // the token is genuine (signed by Google, not expired, not revoked).
-    // This is the server-side counterpart of the client's user.getIdToken().
-    const authHeader = req.headers.authorization || '';
-    if (!authHeader.startsWith('Bearer ')) {
-      res.status(401).json({ error: 'Missing or invalid Authorization header.' });
-      return;
-    }
-    const idToken = authHeader.slice(7); // strip 'Bearer '
-
-    let uid;
-    try {
-      const decoded = await auth.verifyIdToken(idToken);
-      uid           = decoded.uid;
-    } catch (err) {
-      logger.warn('askF1Expert: invalid token', err.message);
-      res.status(401).json({ error: 'Unauthorized — invalid token.' });
-      return;
-    }
-
-    // ── Parse request body ────────────────────────────────────────────────────
-    const { messages, userContext } = req.body || {};
+    // ── Parse request data ────────────────────────────────────────────────────
+    const { messages, userContext } = data || {};
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      res.status(400).json({ error: 'messages array is required.' });
-      return;
+      throw new HttpsError('invalid-argument', 'messages array is required.');
     }
 
     // ── Initialise Gemini ─────────────────────────────────────────────────────
@@ -343,14 +295,12 @@ Append a JSON block in the exact format {"newFacts": ["fact about user preferenc
       result     = await chat.sendMessage(lastMsg);
     } catch (err) {
       logger.error('Gemini API error:', err);
-      res.status(500).json({ error: 'AI service error. Please try again.' });
-      return;
+      throw new HttpsError('internal', 'AI service error. Please try again.');
     }
 
     const candidate = result.response.candidates?.[0];
     if (!candidate) {
-      res.status(500).json({ error: 'No response from AI. Please try again.' });
-      return;
+      throw new HttpsError('internal', 'No response from AI. Please try again.');
     }
 
     // ── Extract reply text ────────────────────────────────────────────────────
@@ -393,6 +343,5 @@ Append a JSON block in the exact format {"newFacts": ["fact about user preferenc
 
     logger.info(`askF1Expert: uid=${uid} | searched=${sources.length > 0} | newFacts=${newFacts.length}`);
 
-    res.status(200).json({ reply: replyText, sources, newFacts });
-  }
-);
+    return { reply: replyText, sources, newFacts };
+  });

@@ -218,6 +218,56 @@ firebase deploy
 
 ---
 
+## Chatbot architecture — askF1Expert
+
+`askF1Expert` is a **Gen 1 Cloud Function** (`firebase-functions/v1`) using `onCall`.
+`syncF1Data` is Gen 2 (`firebase-functions/v2`). Both coexist in `functions/index.js`.
+
+### Why Gen 1 for the chatbot?
+
+This GCP project has an **org policy that blocks `allUsers` and `allAuthenticatedUsers`
+IAM bindings** on both Cloud Run and Cloud Functions. Gen 2 functions run on Cloud Run
+and inherit this restriction. Gen 1 functions are a separate resource type and allow
+granting specific service accounts (not allUsers) the `cloudfunctions.invoker` role.
+
+### How the request flows
+
+```
+Browser (f1.vanemmerik.ai)
+  └─ httpsCallableFromURL → /api/askF1Expert  (same-origin, no CORS preflight)
+       └─ Firebase Hosting `function` rewrite
+            └─ App Engine SA (f1-fan-hub-b9098@appspot.gserviceaccount.com)
+                 └─ Gen 1 Cloud Function (askF1Expert) — context.auth auto-populated
+                      └─ Gemini 2.0 Flash + Google Search grounding
+```
+
+### IAM binding (must be re-applied after function delete/recreate)
+
+```bash
+gcloud functions add-iam-policy-binding askF1Expert \
+  --region=us-central1 \
+  --project=f1-fan-hub-b9098 \
+  --member="serviceAccount:f1-fan-hub-b9098@appspot.gserviceaccount.com" \
+  --role=roles/cloudfunctions.invoker
+```
+
+### Key lessons from debugging
+
+- **Firebase Hosting `run` rewrite** (Gen 2 / Cloud Run): does NOT add authentication.
+  Requests arrive at Cloud Run unauthenticated → org policy blocks them.
+- **Firebase Hosting `function` rewrite** (Gen 1): DOES authenticate using the App Engine
+  service account AND preserves the client's Firebase ID token so `context.auth` works.
+- **Firebase Hosting strips the Authorization header** when proxying — the client's ID token
+  cannot reach the function via the Authorization header through a Hosting proxy.
+- **`httpsCallable` calls `cloudfunctions.net` directly** (cross-origin) — blocked by org
+  policy since allUsers is not permitted. Use `httpsCallableFromURL` pointed at the Hosting
+  URL instead so the request stays same-origin.
+- **Changing between `onCall` and `onRequest`** requires deleting and recreating the function.
+  Firebase CLI will error if you try to change type in-place.
+- **Every time the function is deleted and recreated**, you must re-run the IAM binding above.
+
+---
+
 ## Gotchas & lessons learned
 
 - Firebase web API keys are **not secret** — security is Firestore Security Rules, server-side

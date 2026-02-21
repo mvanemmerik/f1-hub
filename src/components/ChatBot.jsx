@@ -9,12 +9,22 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { httpsCallableFromURL } from 'firebase/functions';
+import { functions } from '../firebase/firebase';
 import { useAuth } from '../context/AuthContext';
 import { getChatMemory, saveChatMemory, getUserProfile } from '../firebase/firestore';
 import { useToast } from './Toast';
 
-// The chatbot API endpoint — routed through Firebase Hosting rewrite to Cloud Run.
-const CHATBOT_API = '/api/askF1Expert';
+// LESSON: Gen 1 onCall + Firebase Hosting `function` rewrite.
+// - Firebase Hosting uses the App Engine SA (granted cloudfunctions.invoker)
+//   to authenticate with the Gen 1 Cloud Function — satisfying the org policy
+//   that blocks allUsers IAM bindings.
+// - httpsCallableFromURL routes through our own Hosting domain (same-origin,
+//   no CORS preflight) rather than calling cloudfunctions.net directly.
+// - Firebase Hosting's `function` rewrite preserves the user's Firebase ID
+//   token so the onCall framework can populate context.auth.
+const FUNCTION_URL  = `${window.location.origin}/api/askF1Expert`;
+const askF1ExpertFn = httpsCallableFromURL(functions, FUNCTION_URL, { timeout: 65_000 });
 
 export default function ChatBot() {
   const { user }      = useAuth();
@@ -109,28 +119,15 @@ export default function ChatBot() {
     setLoading(true);
 
     try {
-      const idToken = await user.getIdToken();
-      const response = await fetch(CHATBOT_API, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({
-          // Filter out the initial AI greeting — Gemini requires first role to be user
-          messages: nextMessages
-            .filter((m, idx) => !(idx === 0 && m.role === 'model'))
-            .map(m => ({ role: m.role, text: m.text })),
-          userContext,
-        }),
+      const result = await askF1ExpertFn({
+        // Filter out the initial AI greeting — Gemini requires first role to be user
+        messages: nextMessages
+          .filter((m, idx) => !(idx === 0 && m.role === 'model'))
+          .map(m => ({ role: m.role, text: m.text })),
+        userContext,
       });
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || `HTTP ${response.status}`);
-      }
-
-      const { reply, sources = [], newFacts = [] } = await response.json();
+      const { reply, sources = [], newFacts = [] } = result.data;
 
       const aiMessage = { role: 'model', text: reply, sources };
       const finalMessages = [...nextMessages, aiMessage];

@@ -10,6 +10,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
 
 // Your web app's Firebase configuration (from Firebase Console)
 const firebaseConfig = {
@@ -25,8 +26,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // Export the services we'll use throughout the app
-export const auth = getAuth(app);
-export const db   = getFirestore(app);
+export const auth      = getAuth(app);
+export const db        = getFirestore(app);
+export const functions = getFunctions(app, 'us-central1');
 
 // GoogleAuthProvider is a helper that handles the Google Sign-In popup/redirect
 export const googleProvider = new GoogleAuthProvider();
