@@ -21,6 +21,11 @@ export default function Navbar() {
     { to: '/predictions', label: 'Predictions' },
   ];
 
+  // External links rendered separately — open in new tab
+  const extLinks = [
+    { href: '/architecture.html', label: 'Architecture', title: 'How this app works' },
+  ];
+
   function close() { setMenu(false); }
 
   return (
@@ -42,6 +47,19 @@ export default function Navbar() {
               >
                 {link.label}
               </Link>
+            </li>
+          ))}
+          {extLinks.map(link => (
+            <li key={link.href}>
+              <a
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="nav-link nav-link-ext"
+                title={link.title}
+              >
+                {link.label} ↗
+              </a>
             </li>
           ))}
         </ul>
@@ -89,6 +107,19 @@ export default function Navbar() {
                 >
                   {link.label}
                 </Link>
+              </li>
+            ))}
+            {extLinks.map(link => (
+              <li key={link.href}>
+                <a
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mobile-link"
+                  onClick={close}
+                >
+                  {link.label} ↗
+                </a>
               </li>
             ))}
           </ul>
