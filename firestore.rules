@@ -1,0 +1,103 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// firestore.rules  —  Firestore Security Rules
+//
+// LESSON: Security Rules are evaluated server-side by Firebase before any
+// read or write reaches the database. They are the REAL security layer.
+// The client-side ProtectedRoute is just UX — it can be bypassed by anyone
+// with dev tools or the Firebase SDK. Rules cannot be bypassed.
+//
+// Key concepts:
+//   request.auth          — the authenticated user making the request (null if not signed in)
+//   request.auth.uid      — their unique user ID
+//   resource.data         — the existing document data (for update/delete)
+//   request.resource.data — the incoming document data (for create/update)
+//
+// Rule evaluation: rules are NOT cascading — each match block is independent.
+// If no rule matches, the default is DENY.
+// ─────────────────────────────────────────────────────────────────────────────
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ────────────────────────────────────────────────────
+    // Centralising logic in functions keeps rules readable and DRY.
+
+    // Is the user authenticated?
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Is the incoming document owned by the requesting user?
+    function isCreatingAsOwner() {
+      return isSignedIn() && request.auth.uid == request.resource.data.userId;
+    }
+
+    // Validate a comment write: must have required fields and text under 500 chars
+    function validComment() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['raceId', 'userId', 'displayName', 'text', 'createdAt'])
+          && d.text is string
+          && d.text.size() > 0
+          && d.text.size() <= 500;
+    }
+
+    // Validate a prediction write: must have required fields
+    function validPrediction() {
+      let d = request.resource.data;
+      return d.keys().hasAll(['raceId', 'userId', 'raceName', 'predictedWinner', 'createdAt'])
+          && d.predictedWinner is string
+          && d.predictedWinner.size() > 0;
+    }
+
+    // ── Public read collections ─────────────────────────────────────────────
+    // Anyone (even unauthenticated) can read drivers, teams, and races.
+    // Only the Admin SDK (server-side scripts) can write — no client write allowed.
+
+    match /drivers/{driverId} {
+      allow read: if true;
+      allow write: if false; // admin SDK only (bypasses rules)
+    }
+
+    match /teams/{teamId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /races/{raceId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ── User profiles ───────────────────────────────────────────────────────
+    // A user can read and write their OWN profile document only.
+    // No user can read another user's profile.
+
+    match /users/{userId} {
+      allow read,  write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ── Comments ────────────────────────────────────────────────────────────
+    // Any signed-in user can read all comments.
+    // A signed-in user can only CREATE a comment attributed to themselves.
+    // Nobody can update or delete comments (simplification — no edit/delete UI).
+
+    match /comments/{commentId} {
+      allow read:   if isSignedIn();
+      allow create: if isCreatingAsOwner() && validComment();
+      allow update, delete: if false;
+    }
+
+    // ── Predictions ─────────────────────────────────────────────────────────
+    // Any signed-in user can read all predictions.
+    // A signed-in user can only CREATE a prediction attributed to themselves.
+    // Nobody can update predictions (lock-in mechanic — no take-backs!).
+
+    match /predictions/{predictionId} {
+      allow read:   if isSignedIn();
+      allow create: if isCreatingAsOwner() && validPrediction();
+      allow update, delete: if false;
+    }
+  }
+}
