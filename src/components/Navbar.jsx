@@ -23,7 +23,8 @@ export default function Navbar() {
 
   // External links rendered separately — open in new tab
   const extLinks = [
-    { href: '/architecture.html', label: 'Architecture', title: 'How this app works' },
+    { href: '/architecture.html',              label: 'Architecture', title: 'How this app works' },
+    { href: 'https://github.com/mvanemmerik/f1-hub', label: 'GitHub',       title: 'View source on GitHub' },
   ];
 
   function close() { setMenu(false); }

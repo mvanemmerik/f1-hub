@@ -6,15 +6,19 @@ export default function Footer() {
         <span className="footer-divider">·</span>
         <span className="footer-built">
           Built with{' '}
-          <a
-            href="https://opencode.ai"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="footer-link"
-          >
+          <a href="https://opencode.ai" target="_blank" rel="noopener noreferrer" className="footer-link">
             OpenCode
           </a>
         </span>
+        <span className="footer-divider">·</span>
+        <a
+          href="https://github.com/mvanemmerik/f1-hub"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="footer-link"
+        >
+          GitHub ↗
+        </a>
       </div>
     </footer>
   );
