@@ -10,10 +10,12 @@
 import { useState, useEffect } from 'react';
 import { getRaces, getDrivers, addPrediction, getUserPredictionForRace } from '../firebase/firestore';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../components/Toast';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function Predictions() {
   const { user }                      = useAuth();
+  const { showToast }                 = useToast();
   const [races,       setRaces]       = useState([]);
   const [drivers,     setDrivers]     = useState([]);
   const [predictions, setPredictions] = useState({}); // { raceId: prediction }
@@ -53,6 +55,7 @@ export default function Predictions() {
         [race.id]: { predictedWinner: winner },
       }));
       setSelections(prev => ({ ...prev, [race.id]: '' }));
+      showToast(`Prediction locked in for ${race.name}!`);
     } finally {
       setSaving(null);
     }

@@ -12,11 +12,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from './Toast';
 import { subscribeToComments, addComment } from '../firebase/firestore';
 import { signInWithGoogle } from '../firebase/auth';
 
 export default function CommentSection({ raceId }) {
-  const { user }              = useAuth();
+  const { user }                = useAuth();
+  const { showToast }           = useToast();
   const [comments, setComments] = useState([]);
   const [text, setText]         = useState('');
   const [posting, setPosting]   = useState(false);
@@ -41,6 +43,9 @@ export default function CommentSection({ raceId }) {
     try {
       await addComment(raceId, user.uid, user.displayName, user.photoURL, text.trim());
       setText('');
+      showToast('Comment posted!');
+    } catch {
+      showToast('Failed to post comment.', 'error');
     } finally {
       setPosting(false);
     }

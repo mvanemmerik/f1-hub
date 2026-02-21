@@ -6,7 +6,11 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getRaces } from '../firebase/firestore';
+import NewsCard from '../components/NewsCard';
 import LoadingSpinner from '../components/LoadingSpinner';
+
+const RSS_FEED = 'https://www.motorsport.com/rss/f1/news/';
+const NEWS_API = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(RSS_FEED)}&count=3`;
 
 function Countdown({ targetDate }) {
   const [timeLeft, setTimeLeft] = useState(calcTime(targetDate));
@@ -42,11 +46,16 @@ function Countdown({ targetDate }) {
 }
 
 export default function Home() {
-  const [races, setRaces]     = useState([]);
+  const [races,   setRaces]   = useState([]);
+  const [news,    setNews]    = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getRaces().then(data => { setRaces(data); setLoading(false); });
+    fetch(NEWS_API)
+      .then(r => r.json())
+      .then(d => { if (d.status === 'ok') setNews(d.items); })
+      .catch(() => {});
   }, []);
 
   if (loading) return <LoadingSpinner message="Loading season data..." />;
@@ -123,6 +132,21 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Latest News */}
+      {news.length > 0 && (
+        <section className="section">
+          <div className="section-title-row">
+            <h2 className="section-title">Latest News</h2>
+            <Link to="/news" className="section-more">All news →</Link>
+          </div>
+          <div className="news-grid news-grid-home">
+            {news.map((article, i) => (
+              <NewsCard key={i} article={article} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
