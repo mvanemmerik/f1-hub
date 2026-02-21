@@ -151,6 +151,39 @@ export async function setFavouriteDriver(uid, driverId) {
   await setDoc(doc(db, 'users', uid), { favouriteDriverId: driverId }, { merge: true });
 }
 
+// ── Chat memory ───────────────────────────────────────────────────────────────
+// Long-term memory for the AI chatbot. Stored as a nested object inside the
+// user's own document so it inherits the existing "users can read/write their
+// own doc" security rule — no extra rule needed.
+//
+// Schema:
+//   users/{uid}.chatMemory = {
+//     facts:          string[]   — AI-extracted preference notes
+//     recentMessages: { role, text, ts }[]  — rolling 20-message window
+//     updatedAt:      serverTimestamp
+//   }
+//
+// LESSON: setDoc with merge:true performs an "upsert" on the specific field.
+// Even though chatMemory is a nested map, Firestore's dot-notation merge only
+// updates that sub-map without touching other top-level fields (displayName, etc).
+
+export async function getChatMemory(uid) {
+  const snap = await getDoc(doc(db, 'users', uid));
+  if (!snap.exists()) return { facts: [], recentMessages: [] };
+  const data = snap.data();
+  return data.chatMemory || { facts: [], recentMessages: [] };
+}
+
+export async function saveChatMemory(uid, facts, recentMessages) {
+  // Keep only the most recent 20 messages to cap Firestore document size
+  const trimmed = recentMessages.slice(-20);
+  await setDoc(
+    doc(db, 'users', uid),
+    { chatMemory: { facts, recentMessages: trimmed, updatedAt: serverTimestamp() } },
+    { merge: true }
+  );
+}
+
 // ── All predictions (for leaderboard) ────────────────────────────────────────
 
 export async function getAllPredictions() {

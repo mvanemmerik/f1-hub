@@ -73,6 +73,12 @@ service cloud.firestore {
     // ── User profiles ───────────────────────────────────────────────────────
     // A user can read and write their OWN profile document only.
     // No user can read another user's profile.
+    //
+    // This single rule also covers the chatMemory nested map field that the
+    // AI chatbot reads and writes (favourite driver, extracted facts, recent
+    // message history). Because chatMemory lives inside the user doc rather
+    // than a separate collection, no extra rule is required — it inherits
+    // this one automatically.
 
     match /users/{userId} {
       allow read,  write: if isSignedIn() && request.auth.uid == userId;

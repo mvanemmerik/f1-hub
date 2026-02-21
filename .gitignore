@@ -11,11 +11,13 @@ node_modules
 dist
 dist-ssr
 *.local
+package-lock.json
 
 # Environment variables — NEVER commit these
 .env
 .env.local
 .env.production
+functions/.env
 
 # Firebase service account key — contains private keys, NEVER commit
 scripts/serviceAccountKey.json

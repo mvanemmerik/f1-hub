@@ -83,17 +83,17 @@ const drivers = [
   { id: 'ocon',       name: 'Esteban Ocon',      number: 31, nationality: 'French',       flag: '🇫🇷', team: 'Haas F1 Team',   teamId: 'haas',         teamColor: '#B6BABD' },
   { id: 'bearman',    name: 'Oliver Bearman',    number: 87, nationality: 'British',      flag: '🇬🇧', team: 'Haas F1 Team',   teamId: 'haas',         teamColor: '#B6BABD' },
   // McLaren
-  { id: 'norris',     name: 'Lando Norris',      number:  4, nationality: 'British',      flag: '🇬🇧', team: 'McLaren',        teamId: 'mclaren',      teamColor: '#FF8000' },
+  { id: 'norris',     name: 'Lando Norris',      number:  1, nationality: 'British',      flag: '🇬🇧', team: 'McLaren',        teamId: 'mclaren',      teamColor: '#FF8000' },
   { id: 'piastri',    name: 'Oscar Piastri',     number: 81, nationality: 'Australian',   flag: '🇦🇺', team: 'McLaren',        teamId: 'mclaren',      teamColor: '#FF8000' },
   // Mercedes
   { id: 'russell',    name: 'George Russell',    number: 63, nationality: 'British',      flag: '🇬🇧', team: 'Mercedes',       teamId: 'mercedes',     teamColor: '#00D2BE' },
   { id: 'antonelli',  name: 'Kimi Antonelli',    number: 12, nationality: 'Italian',      flag: '🇮🇹', team: 'Mercedes',       teamId: 'mercedes',     teamColor: '#00D2BE' },
   // Racing Bulls
   { id: 'lawson',     name: 'Liam Lawson',       number: 30, nationality: 'New Zealander',flag: '🇳🇿', team: 'Racing Bulls',   teamId: 'racing-bulls', teamColor: '#6692FF' },
-  { id: 'lindblad',   name: 'Arvid Lindblad',    number:  6, nationality: 'British',      flag: '🇬🇧', team: 'Racing Bulls',   teamId: 'racing-bulls', teamColor: '#6692FF' },
+  { id: 'lindblad',   name: 'Arvid Lindblad',    number: 41, nationality: 'British',      flag: '🇬🇧', team: 'Racing Bulls',   teamId: 'racing-bulls', teamColor: '#6692FF' },
   // Red Bull Racing
-  { id: 'verstappen', name: 'Max Verstappen',    number:  1, nationality: 'Dutch',        flag: '🇳🇱', team: 'Red Bull Racing',teamId: 'red-bull',     teamColor: '#3671C6' },
-  { id: 'hadjar',     name: 'Isack Hadjar',      number: 22, nationality: 'French',       flag: '🇫🇷', team: 'Red Bull Racing',teamId: 'red-bull',     teamColor: '#3671C6' },
+  { id: 'verstappen', name: 'Max Verstappen',    number:  3, nationality: 'Dutch',        flag: '🇳🇱', team: 'Red Bull Racing',teamId: 'red-bull',     teamColor: '#3671C6' },
+  { id: 'hadjar',     name: 'Isack Hadjar',      number:  6, nationality: 'French',       flag: '🇫🇷', team: 'Red Bull Racing',teamId: 'red-bull',     teamColor: '#3671C6' },
   // Williams
   { id: 'sainz',      name: 'Carlos Sainz',      number: 55, nationality: 'Spanish',      flag: '🇪🇸', team: 'Williams',       teamId: 'williams',     teamColor: '#00A3E0' },
   { id: 'albon',      name: 'Alexander Albon',   number: 23, nationality: 'Thai',         flag: '🇹🇭', team: 'Williams',       teamId: 'williams',     teamColor: '#00A3E0' },

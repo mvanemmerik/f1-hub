@@ -20,6 +20,7 @@ import { signInWithGoogle } from './firebase/auth';
 import Navbar         from './components/Navbar';
 import Footer         from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
+import ChatBot        from './components/ChatBot';
 import Home           from './pages/Home';
 import Drivers        from './pages/Drivers';
 import Teams          from './pages/Teams';
@@ -88,6 +89,10 @@ export default function App() {
         </Routes>
       </main>
       <Footer />
+      {/* ChatBot renders as a floating overlay on all authenticated pages.
+          It lives outside <main> so it sits above the page stacking context
+          and its fixed positioning is relative to the viewport, not the page. */}
+      <ChatBot />
     </>
   );
 }

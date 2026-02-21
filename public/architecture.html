@@ -142,6 +142,7 @@ flowchart TB
   %% ── User ────────────────────────────────────────────────────────────
   subgraph USER["  👤  End User  "]
     Browser["🌐  Browser\n──────────\nf1.vanemmerik.ai"]
+    ChatUI["💬  Chatbot UI\n──────────\nChatBot.jsx\nShort-term memory"]
   end
 
   %% ── DNS ─────────────────────────────────────────────────────────────
@@ -153,10 +154,10 @@ flowchart TB
   subgraph FIREBASE["  🔥  Firebase — GCP  "]
     Hosting["📦  Firebase Hosting\n──────────\nCDN edge nodes\nServes React SPA\n(dist/ folder)"]
     Auth["🔐  Firebase Auth\n──────────\nGoogle Sign-In\nSession management\nAuthorized domains"]
-    Firestore["🗄️  Firestore\n──────────\n/drivers      (public)\n/teams        (public)\n/races        (public)\n/results      (auth read)\n/standings    (auth read)\n/users        (owner)\n/comments     (auth)\n/predictions  (auth)"]
+    Firestore["🗄️  Firestore\n──────────\n/drivers      (public)\n/teams        (public)\n/races        (public)\n/results      (auth read)\n/standings    (auth read)\n/users        (owner)\n  └ chatMemory\n/comments     (auth)\n/predictions  (auth)"]
     Storage["🖼️  Firebase Storage\n──────────\n/driver-illustrations\n22 × AI-generated\nPNG portraits"]
     Scheduler["⏰  Cloud Scheduler\n──────────\nCron: 0 6 * * *\nTriggers syncF1Data\ndaily at 06:00 UTC"]
-    Functions["⚡  Cloud Functions\n──────────\nsyncF1Data (Gen 2)\nFetches Jolpica API\nWrites results +\nstandings to Firestore"]
+    Functions["⚡  Cloud Functions\n──────────\nsyncF1Data (Gen 2)\nFetches Jolpica API\nWrites results +\nstandings to Firestore\n\naskF1Expert (Gen 2)\nGemini chat +\nGoogle Search grounding"]
   end
 
   %% ── External ─────────────────────────────────────────────────────────
@@ -165,7 +166,7 @@ flowchart TB
     JolpicaAPI["🏎️  Jolpica F1 API\n──────────\napi.jolpi.ca\nRace results\nDriver standings\nConstructor standings\n(free, no key)"]
     rss2json["⚙️  rss2json.com\n──────────\nCORS proxy\nRSS → JSON"]
     Motorsport["📰  Motorsport.com\n──────────\nF1 RSS feed\n(live news)"]
-    Gemini["✨  Gemini API\n──────────\ngemini-2.0-flash\n-exp-image-generation\nComic/manga portraits"]
+    Gemini["✨  Gemini API\n──────────\ngemini-2.0-flash\nChat + grounding\nComic/manga portraits"]
   end
 
   %% ── Developer ────────────────────────────────────────────────────────
@@ -189,6 +190,12 @@ flowchart TB
   Browser      -->|"Write comments/predictions\n(auth + rules)"| Firestore
   Browser      -->|"Load illustrations\n(public read)"| Storage
 
+  Browser      -->|"Open chatbot"| ChatUI
+  ChatUI       -->|"Load/save chatMemory\n(users/{uid})"| Firestore
+  ChatUI       -->|"POST /api/askF1Expert\n(Bearer token)"| Hosting
+  Hosting      -->|"Rewrite to\naskF1Expert"| Functions
+  Functions    -->|"Gemini chat +\nGoogle Search"| Gemini
+
   Browser      -->|"Fetch news (CORS)"| rss2json
   rss2json     -->|"Proxy RSS fetch"| Motorsport
 
@@ -211,6 +218,7 @@ flowchart TB
 
   %% ── Styles ───────────────────────────────────────────────────────────
   style Browser     fill:#1a1a2e,stroke:#4444aa,color:#f0f0f0
+  style ChatUI      fill:#1a1a2e,stroke:#4444aa,color:#f0f0f0
   style CF          fill:#1a1a1a,stroke:#f6821f,color:#f6821f
 
   style Hosting     fill:#1a2e1a,stroke:#34a853,color:#f0f0f0
@@ -295,6 +303,15 @@ flowchart TB
     <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">Browser cannot fetch Motorsport.com RSS directly (CORS blocked)</span></div>
     <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">App fetches <strong>rss2json.com</strong> proxy instead — returns clean JSON</span></div>
     <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">rss2json fetches <strong>Motorsport.com RSS</strong> server-side and proxies result</span></div>
+  </div>
+
+  <div class="flow-card">
+    <h3>💬 Chatbot (AI)</h3>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">User opens <strong>F1 Expert</strong> chat overlay</span></div>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">Chat UI loads <strong>chatMemory</strong> from users/{uid}</span></div>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">Client sends prompt to <strong>/api/askF1Expert</strong> (Bearer token)</span></div>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">Cloud Function calls <strong>Gemini 2.0 Flash</strong> with Google Search grounding</span></div>
+    <div class="flow-row"><span class="flow-arrow">→</span><span class="flow-desc">Reply + citations returned; <strong>chatMemory</strong> saved back to Firestore</span></div>
   </div>
 
   <div class="flow-card">
